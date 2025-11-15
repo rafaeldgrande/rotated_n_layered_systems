@@ -9,10 +9,10 @@ arq_1st_layer = sys.argv[4]  # File for first layer
 arq_2nd_layer = sys.argv[5]  # File for second layer
 
 reinforce_distance_layers = True  # If True, adds a small offset to the second layer to ensure separation
-d_interlayer = 3.0 # Distance between layers in angstroms (distance between highest values of z of the first layer and lowest values of z of the second layer)
+d_interlayer = 6.0 # Distance between layers in angstroms (distance between highest values of z of the first layer and lowest values of z of the second layer)
 
 '''Usage:
-python generate_twisted_2L_WSe2.py N M first_layer_file second_layer_file
+python generate_twisted_2L_WSe2.py a N M first_layer_file second_layer_file
 
 File for each layer should be like this:
 W x y z
@@ -58,6 +58,10 @@ def get_element_indices(elements_list):
 theta = np.arccos((N**2 + 4*N*M + M**2)/(2*(N**2 + N*M + M**2)))
 L_supercell = a*np.sqrt(N**2+N*M+M**2)
 L = L_supercell/abs(M-N)  # Periodicidade do padrao de Moire
+
+Expected_number_prim_cells = (N**2 + N*M + M**2)  # Numero esperado de celulas primarias na supercelula
+Expected_number_atoms_per_layer = Expected_number_prim_cells * 3  # Numero esperado de atomos por camada (3 atomos por celula primaria)
+print(f"Predicted number of atoms per layer 3 * (N**2 + N*M + M**2): {Expected_number_atoms_per_layer}")
 
 delta = 1e-3*a/L_supercell
 
@@ -131,6 +135,11 @@ coords_2nd_twisted_layer, elements_2nd_twisted_layer = rotate_coordinates(coords
 print(f"Total atoms in moire first layer: {len(coords_1st_twisted_layer)}")
 print(f"Total atoms in moire second layer: {len(coords_2nd_twisted_layer)}")
 
+if len(coords_1st_twisted_layer) != Expected_number_atoms_per_layer:
+    print("WARNING: Number of atoms in first twisted layer does not match expected number.")
+if len(coords_2nd_twisted_layer) != Expected_number_atoms_per_layer:
+    print("WARNING: Number of atoms in second twisted layer does not match expected number.")
+
 Total_atoms = len(coords_1st_twisted_layer) + len(coords_2nd_twisted_layer)
 
 # mapping elements to indices
@@ -144,6 +153,8 @@ Nelements = max(indexed_elements_2nd)
 print("Writing coordinates to lammps files...")
 
 topo_lammps = open(str(N)+'_'+str(M)+'_twisted.top', 'w')
+xyz_file = open(str(N)+'_'+str(M)+'_twisted.xyz', 'w')
+xyz_file.write(f"{Total_atoms}\n\n")
 
 topo_lammps.write('\n\n# indices '+str(N)+' '+str(M)+'\n')
 topo_lammps.write('# '+str(L_supercell)+' angstrons - supercell size\n')
@@ -167,6 +178,8 @@ for i, (coord, elem_index) in enumerate(zip(coords_1st_twisted_layer, indexed_el
     # topo_lammps.write(f"{i+1} 1 {elem_index} {x} {y} {z}\n")
     topo_lammps.write(f"{atom_index:6d} {mol_index:4d} {elem_index:4d} {x:14.8f} {y:14.8f} {z:14.8f}\n")
     
+    xyz_file.write(f"{elements_1st_twisted_layer[i]} {x:14.8f} {y:14.8f} {z:14.8f}\n")
+    
 # 2nd layer atoms
 mol_index = 2
 for i, (coord, elem_index) in enumerate(zip(coords_2nd_twisted_layer, indexed_elements_2nd)):
@@ -175,6 +188,9 @@ for i, (coord, elem_index) in enumerate(zip(coords_2nd_twisted_layer, indexed_el
     # atom_index molecule_index atom_type x y z
     # topo_lammps.write(f"{i+1 + len(coords_1st_twisted_layer)} 2 {elem_index} {x} {y} {z}\n")
     topo_lammps.write(f"{atom_index:6d} {mol_index:4d} {elem_index:4d} {x:14.8f} {y:14.8f} {z:14.8f}\n")
+    xyz_file.write(f"{elements_2nd_twisted_layer[i]} {x:14.8f} {y:14.8f} {z:14.8f}\n")
+    
+xyz_file.close()
 topo_lammps.close()
 
 print(f"Coordinates written to {str(N)}_{str(M)}_twisted.top")
