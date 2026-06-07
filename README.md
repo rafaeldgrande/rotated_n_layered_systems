@@ -1,8 +1,10 @@
 # Rotated N-Layered Systems
 
-Set of scripts to study twisted N-layer systems (graphene and TMDs). Those scripts were used in the following papers (see bibtex entries in the end of this page):
+Scripts to generate and analyze twisted N-layer van der Waals systems (graphene and TMDs) for LAMMPS molecular dynamics simulations. These scripts were used in the following papers:
+
 - [Flat bands and gaps in twisted double bilayer graphene](https://doi.org/10.1039/C9NR10830K)
 - [Flat bands and gaps in twisted double trilayer graphene](https://doi.org/10.1103/PhysRevB.111.075111)
+- [Multi scale calculation of light-induced interlayer changes in low-angle twisted bilayer WSe₂](https://doi.org/10.48550/arXiv.2604.28143)
 
 
 
@@ -10,34 +12,105 @@ Set of scripts to study twisted N-layer systems (graphene and TMDs). Those scrip
 
 | File | Purpose |
 |------|---------|
-| `rotated_n_layer.py` | Main script for generating twisted 6-layer graphene structures |
-| `generate_twisted_2L_WSe2.py` | Generate twisted bilayer WSe₂ systems |
-| `energia_por_atomo_t6LG.py` | Calculate and analyze energy per atom for different configurations |
-| `plot_cos_theta_L_twisted_2L.py` | Plot relationships between twist angle and supercell size |
-| `run_code.bash` | Batch processing script for multiple configurations |
-
+| `rotated_n_layer.py` | Generate twisted double-trilayer graphene (t3+3LG) supercells for LAMMPS |
+| `generate_twisted_2L_WSe2.py` | Generate twisted bilayer WSe₂ using integer-based moiré construction (recommended) |
+| `generate_twisted_2L_WSe2_new.py` | Newer brute-force version for twisted bilayer WSe₂ |
+| `plot_cos_theta_L_twisted_2L.py` | Find (N, M) pairs for a target angle and plot supercell size vs. twist angle |
+| `energia_por_atomo_t6LG.py` | Post-process LAMMPS results: plot energy per atom vs. twist angle for t6LG |
+| `run_code.bash` | Batch script to generate t6LG structures for multiple (N, M) pairs |
 
 
 ## Theory
 
-The twist angle θ between layers is calculated using:
+For a hexagonal lattice, commensurate twist angles are defined by integer pairs (N, M). The supercell vectors are:
 
 ```
-θ = arccos((N² + 4NM + M²)/(2(N² + NM + M²)))
+A1 = N·a1 + M·a2
+A2 = -M·a1 + (N+M)·a2
 ```
 
-The supercell size is given by:
+The twist angle θ and supercell lattice parameter L are:
 
 ```
-L = a√(3(N² + NM + M²))
+θ = arccos((N² + 4NM + M²) / (2(N² + NM + M²)))
+
+L = a · √(N² + NM + M²)
 ```
 
-Where:
-- `N`, `M` are integer indices defining the supercell
-- `a` is the lattice parameter
-- The Moiré pattern periodicity is `L/|M-N|`
+The supercell contains exactly `N² + NM + M²` primitive cells. Each layer is rotated by ±θ/2 about the z-axis. The Moiré pattern periodicity is `L / |M - N|`.
 
 
+## Usage
+
+### Twisted bilayer WSe₂ (`generate_twisted_2L_WSe2.py`)
+
+Takes the lattice parameter and (N, M) indices as command-line arguments:
+
+```bash
+python generate_twisted_2L_WSe2.py <a_angstrom> <N> <M>
+```
+
+Example (magic angle ~1.1°, a = 3.29 Å):
+
+```bash
+python generate_twisted_2L_WSe2.py 3.29 34 33
+```
+
+Outputs:
+- `N_M_twisted.top` — LAMMPS topology file (triclinic box, atom types: W-layer1=1, Se-layer1=2, W-layer2=3, Se-layer2=4)
+- `N_M_twisted.xyz` — XYZ file for visualization
+- `1st_layer_twisted.png` — diagnostic plot of layer 1 atomic positions
+
+The script uses an exact integer-based enumeration of primitive-cell origins inside the moiré supercell, guaranteeing exactly `3(N² + NM + M²)` atoms per layer (3 atoms per primitive cell: W, Se, Se).
+
+### Twisted 6-layer graphene (`rotated_n_layer.py`)
+
+Edit `N` and `M` directly in the script (default: N=61, M=59) and run:
+
+```bash
+python rotated_n_layer.py
+```
+
+Outputs:
+- `t6LG_N_M.xyz` — XYZ positions for the supercell
+- `visual_t6LG_N_M.xyz` — XYZ for visualization (includes atoms outside supercell)
+- `N_M/t6LG_N_M.top` — LAMMPS topology file (6 atom types, ABA stacking per trilayer)
+- `cell_basis` — supercell lattice vectors
+
+### Batch generation (`run_code.bash`)
+
+```bash
+bash run_code.bash
+```
+
+Loops over a predefined list of (N, M) pairs and calls the structure generator for each.
+
+### Finding (N, M) for a target angle (`plot_cos_theta_L_twisted_2L.py`)
+
+Edit the target angle in the script (default: 1.1°) and run:
+
+```bash
+python plot_cos_theta_L_twisted_2L.py
+```
+
+Prints all (N, M) pairs within 0.05° of the target and plots L vs. θ for the full (N, M) space explored.
+
+### Post-processing energy (`energia_por_atomo_t6LG.py`)
+
+Reads LAMMPS log files from subdirectories named `N_M/` and plots energy per atom vs. twist angle:
+
+```bash
+python energia_por_atomo_t6LG.py
+```
+
+Requires completed LAMMPS runs with log files in each `N_M/` directory.
+
+
+## Dependencies
+
+- Python 3
+- NumPy
+- Matplotlib
 
 
 ## Citation
@@ -52,7 +125,7 @@ Where:
     number = {8},
     journal = {Nanoscale},
     publisher = {Royal Society of Chemistry (RSC)},
-    author = {Culchac,  F. J. and Del Grande,  R. R. and Capaz,  Rodrigo B. and Chico,  Leonor and Morell,  E. Suárez},
+    author = {Culchac, F. J. and Del Grande, R. R. and Capaz, Rodrigo B. and Chico, Leonor and Morell, E. Suárez},
     year = {2020},
     pages = {5014–5020}
 }
@@ -75,4 +148,14 @@ Where:
 }
 ```
 
-
+```bibtex
+@misc{delgrande2026multiscalecalculationlightinducedstructural,
+      title={Multi-scale calculation of light-induced structural changes in low-angle twisted bilayer WSe$_2$}, 
+      author={Rafael R. Del Grande and David A. Strubbe},
+      year={2026},
+      eprint={2604.28143},
+      archivePrefix={arXiv},
+      primaryClass={cond-mat.mtrl-sci},
+      url={https://arxiv.org/abs/2604.28143}, 
+}
+```
