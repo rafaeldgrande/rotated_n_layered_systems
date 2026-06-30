@@ -15,6 +15,9 @@ Scripts to generate and analyze twisted N-layer van der Waals systems (graphene 
 | `rotated_n_layer.py` | Generate twisted double-trilayer graphene (t3+3LG) supercells for LAMMPS |
 | `generate_twisted_2L_WSe2.py` | Generate twisted bilayer WSe₂ using integer-based moiré construction (recommended) |
 | `generate_twisted_2L_WSe2_new.py` | Newer brute-force version for twisted bilayer WSe₂ |
+| `generate_twisted_2L_MoS2.py` | Generate twisted bilayer MoS₂ supercells (SW+KC relaxed parameters, AA registry at origin) |
+| `generate_twisted_MoSe2WSe2.py` | Generate twisted MoSe₂/WSe₂ heterobilayer supercells (averaged lattice constant, AB_3R stacking) |
+| `build_heterobilayer.py` | General heterobilayer builder: brute-force search for commensurate (N, M) pairs satisfying N·a₁ = M·a₂ across two different lattice constants |
 | `plot_cos_theta_L_twisted_2L.py` | Find (N, M) pairs for a target angle and plot supercell size vs. twist angle |
 | `energia_por_atomo_t6LG.py` | Post-process LAMMPS results: plot energy per atom vs. twist angle for t6LG |
 | `run_code.bash` | Batch script to generate t6LG structures for multiple (N, M) pairs |
@@ -94,6 +97,62 @@ python plot_cos_theta_L_twisted_2L.py
 ```
 
 Prints all (N, M) pairs within 0.05° of the target and plots L vs. θ for the full (N, M) space explored.
+
+### Twisted bilayer MoS₂ (`generate_twisted_2L_MoS2.py`)
+
+Same interface as the WSe₂ generator:
+
+```bash
+python generate_twisted_2L_MoS2.py <N> <M>
+```
+
+Uses SW+KC relaxed lattice parameters for AB_3R stacking (a = 3.117 Å, d_Mo-Mo = 6.087 Å). Outputs:
+- `N_M_twisted.top` — LAMMPS topology file (atom types: Mo-L1=1, S-L1=2,3; Mo-L2=4, S-L2=5,6)
+- `t2LMoS2_N_M.xyz` — XYZ file for visualization
+
+### Twisted MoSe₂/WSe₂ heterobilayer (`generate_twisted_MoSe2WSe2.py`)
+
+```bash
+python generate_twisted_MoSe2WSe2.py <N> <M>
+```
+
+Uses AB_3R bilayer relaxed parameters with the averaged lattice constant (a = 3.2977 Å). Outputs to `N_M/` subdirectory:
+- `N_M/twisted_MoSe2WSe2_initial.top` — LAMMPS topology file (6 atom types: Mo1, Se2, Se1 for MoSe₂ layer; W2, Se4, Se3 for WSe₂ layer)
+- `N_M/t2L_MoSe2WSe2_N_M.xyz` — XYZ file for visualization
+
+### General heterobilayer builder (`build_heterobilayer.py`)
+
+For systems with different lattice constants in each layer (e.g. MoS₂/WSe₂, Δa ≈ 5.35%). Uses a brute-force search to find integers (N, M) such that N·a₁ ≈ M·a₂ within a tolerance, producing a commensurate supercell.
+
+```bash
+python build_heterobilayer.py [--a1 A1] [--a2 A2] [--theta THETA] \
+    [--h1 H1] [--h2 H2] [--d_int D_INT] [--tol TOL] [--N_max N_MAX] \
+    [--output FILENAME] [--m1_metal M] [--m1_chalc M] [--m2_metal M] [--m2_chalc M]
+```
+
+Key arguments:
+
+| Argument | Default | Description |
+|----------|---------|-------------|
+| `--a1` | 3.31 | Lattice constant of layer 1 (Å) |
+| `--a2` | 3.11 | Lattice constant of layer 2 (Å) |
+| `--theta` | 1.0 | Twist angle (degrees) |
+| `--h1` | 1.6 | Chalcogen–metal height in layer 1 (Å) |
+| `--h2` | 1.5 | Chalcogen–metal height in layer 2 (Å) |
+| `--d_int` | 7.5 | Metal–metal interlayer distance (Å) |
+| `--tol` | 0.05 | Commensurability tolerance (Å) |
+| `--N_max` | 100 | Maximum integer search range |
+| `--output` | auto | Output `.dat` filename |
+
+Example (MoS₂/WSe₂, θ = 1°):
+
+```bash
+python build_heterobilayer.py --a1 3.288 --a2 3.117 --theta 1.0 \
+    --h1 1.644 --h2 1.559 --d_int 6.376 \
+    --m1_metal 183.84 --m1_chalc 78.97 --m2_metal 95.96 --m2_chalc 32.06
+```
+
+Outputs a LAMMPS `.dat` file (atom types: W=1, Se=2,3 for layer 1; Mo=4, S=5,6 for layer 2).
 
 ### Post-processing energy (`energia_por_atomo_t6LG.py`)
 
